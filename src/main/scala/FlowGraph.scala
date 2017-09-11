@@ -12,6 +12,8 @@ object FlowGraph {
 }
 
 class FlowGraph(adj: Map[Int, (ForwardEdgeIds, BackwardEdgeIds)], edges: Map[Int, FlowEdge]) {
+  def apply(edgeId: Int): FlowEdge = edges(edgeId)
+
   def +(e: FlowEdge): FlowGraph = {
     val b = e.reversed
     val (fwd, bwd) = adj(e.from)
@@ -26,14 +28,22 @@ class FlowGraph(adj: Map[Int, (ForwardEdgeIds, BackwardEdgeIds)], edges: Map[Int
 
   def backwardEdges(id: Int): BackwardEdgeIds = adj(id)._2
 
-  def withFlow(edgeId: Int, flow: Int): FlowGraph = {
+  private def flowAugmentedEdges(edgeId: Int, flow: Int): List[(Int, FlowEdge)] = {
     val fwId = edgeId
     val bkId = edgeId ^ 1
     val fwEdge = edges(fwId)
     val bkEdge = edges(bkId)
     val newFwEdge = fwEdge + flow
     val newBkEdge = bkEdge - flow
-    new FlowGraph(adj, edges + (fwId -> newFwEdge, bkId -> newBkEdge))
+    List(fwId -> newFwEdge, bkId -> newBkEdge)
+  }
+
+  def withFlow(edgeId: Int, flow: Int): FlowGraph = {
+    new FlowGraph(adj, flowAugmentedEdges(edgeId, flow).foldLeft(edges){ case (es, e) => es + e})
+  }
+
+  def withFlow(edgeIds: List[Int], flow: Int): FlowGraph = {
+    new FlowGraph(adj, edgeIds.flatMap(id => flowAugmentedEdges(id, flow)).foldLeft(edges){ case (es, e) => es + e })
   }
 
   override lazy val toString: String = {
@@ -45,7 +55,7 @@ class FlowGraph(adj: Map[Int, (ForwardEdgeIds, BackwardEdgeIds)], edges: Map[Int
 }
 
 case class FlowEdge(from: Int, to: Int, capacity: Int, flow: Int = 0) {
-  def reversed: FlowEdge = FlowEdge(to, from, capacity)
+  def reversed: FlowEdge = FlowEdge(to, from, 0)
   def +(moreFlow: Int): FlowEdge = FlowEdge(from, to, capacity, flow + moreFlow)
   def -(lessFlow: Int): FlowEdge = FlowEdge(from, to, capacity, flow - lessFlow)
 }
