@@ -14,12 +14,26 @@ object FlowGraph {
 class FlowGraph(adj: Map[Int, (ForwardEdgeIds, BackwardEdgeIds)], edges: Map[Int, FlowEdge]) {
   def apply(edgeId: Int): FlowEdge = edges(edgeId)
 
+  def edgeIdFor(fromVertex: Int, toVertex: Int): Option[Int] = {
+    val (fwEs, bkEs) = adj(fromVertex)
+    (fwEs ::: bkEs).find(eId => edges(eId).to == toVertex)
+  }
+
+  def edgeFor(fromVertex: Int, toVertex: Int): Option[(Int, Int)] = {
+    val (fwEs, bkEs) = adj(fromVertex)
+    (fwEs ::: bkEs).find(eId => edges(eId).to == toVertex) match {
+      case None => None
+      case Some(id) => Some(id, edges(id).capacity - edges(id).flow)
+    }
+  }
+
   def +(e: FlowEdge): FlowGraph = {
     val b = e.reversed
-    val (fwd, bwd) = adj(e.from)
+    val (real, bwd) = adj(e.from)
+    val (fwd, imaginary) = adj(b.from)
     val fwdEdgeId = edges.size
     val bwdEdgeId = fwdEdgeId + 1
-    new FlowGraph(adj + (e.from -> (fwdEdgeId :: fwd, bwdEdgeId :: bwd)), edges + (fwdEdgeId -> e, bwdEdgeId -> b))
+    new FlowGraph(adj + (e.from -> (fwdEdgeId :: real, bwd), b.from -> (fwd, bwdEdgeId :: imaginary)), edges + (fwdEdgeId -> e, bwdEdgeId -> b))
   }
 
   def size: Int = adj.size
