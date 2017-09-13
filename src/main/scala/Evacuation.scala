@@ -108,9 +108,11 @@ object Evacuation {
         if (f > 0 && f != Integer.MAX_VALUE) {
           loop(g.withFlow(edgeIds.unzip._1, f), totalFlow + f)
         } else {
+          println(g)
           totalFlow
         }
       } else {
+        println(g)
         totalFlow
       }
     }
