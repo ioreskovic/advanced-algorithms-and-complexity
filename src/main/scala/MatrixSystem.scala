@@ -1,18 +1,10 @@
-import scala.collection.mutable.ListBuffer
-
 object MatrixSystem {
-  def apply(): MatrixSystem = empty()
-
-  def empty(): MatrixSystem = {
-    new MatrixSystem(ListBuffer())
-  }
-
   def apply(linearInequality: MatrixRow*): MatrixSystem = {
-    new MatrixSystem(ListBuffer(linearInequality:_*))
+    new MatrixSystem(Array(linearInequality: _*))
   }
 }
 
-class MatrixSystem private(private val m: ListBuffer[MatrixRow]) {
+class MatrixSystem private(private val m: Array[MatrixRow]) {
   def swapRows(i: Int, j: Int): MatrixSystem = {
     val temp = m(i)
     m(i) = m(j)
@@ -21,27 +13,27 @@ class MatrixSystem private(private val m: ListBuffer[MatrixRow]) {
   }
 
   def scale(row: Int, factor: Double): MatrixSystem = {
-    this(row) = { _: Unit => m(row).scale(factor) }
+    this (row) = { _: Unit => m(row).scale(factor) }
   }
 
   def neg(row: Int): MatrixSystem = {
-    this(row) = { _: Unit => -m(row) }
+    this (row) = { _: Unit => -m(row) }
   }
 
   def add(targetRow: Int, sourceRow: Int): MatrixSystem = {
-    this(targetRow) = { _: Unit => m(targetRow) + m(sourceRow) }
+    this (targetRow) = { _: Unit => m(targetRow) + m(sourceRow) }
   }
 
   def subtract(targetRow: Int, sourceRow: Int): MatrixSystem = {
-    this(targetRow) = { _: Unit => m(targetRow) - m(sourceRow) }
+    this (targetRow) = { _: Unit => m(targetRow) - m(sourceRow) }
   }
 
   def multiply(targetRow: Int, factor: Double): MatrixSystem = {
-    this(targetRow) = { _: Unit => m(targetRow) * factor }
+    this (targetRow) = { _: Unit => m(targetRow) * factor }
   }
 
   def divide(targetRow: Int, factor: Double): MatrixSystem = {
-    this(targetRow) = { _: Unit => m(targetRow) / factor }
+    this (targetRow) = { _: Unit => m(targetRow) / factor }
   }
 
   def update(row: Int, f: Unit => MatrixRow): MatrixSystem = {
