@@ -28,7 +28,7 @@ class LinearInequality private(private val coeffs: Array[Double]) {
   def /(factor: Double): LinearInequality = scale(1.0 / factor)
 
   override def toString: String = {
-    (0 until dim).map(d => varCoeff(d).formatted("+%f") + s"x[$d]").mkString(" ") + " = " + resCoeff.formatted("+%f")
+    (0 until dim).map(d => varCoeff(d).formatted("%+f") + s"x[$d]").mkString(" ") + " = " + resCoeff.formatted("%+f")
   }
 }
 
