@@ -1,10 +1,14 @@
 object MatrixSystem {
-  def apply(linearInequality: MatrixRow*): MatrixSystem = {
-    new MatrixSystem(Array(linearInequality: _*))
+  def apply(rows: Seq[MatrixRow]): MatrixSystem = {
+    new MatrixSystem(Array(rows:_*))
   }
 }
 
 class MatrixSystem private(private val m: Array[MatrixRow]) {
+  def rows: Int = m.length
+  def cols: Int = m.head.dim
+  def dim: Int = cols
+
   def swapRows(i: Int, j: Int): MatrixSystem = {
     val temp = m(i)
     m(i) = m(j)
@@ -43,7 +47,9 @@ class MatrixSystem private(private val m: Array[MatrixRow]) {
 
   def apply(row: Int): MatrixRow = m(row)
 
+  def value(row: Int, column: Int): Double = m(row).varCoeff(column)
+
   override def toString: String = {
-    m.mkString("\n")
+    m.mkString(System.lineSeparator())
   }
 }
