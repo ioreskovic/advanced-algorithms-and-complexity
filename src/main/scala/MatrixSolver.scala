@@ -1,3 +1,5 @@
+import EnergyValues.{MatrixRow, MatrixSystem, solve}
+
 import scala.io.StdIn
 
 object MatrixSolver {
@@ -36,15 +38,19 @@ object MatrixSolver {
   }
 
   def findPivot(sys: MatrixSystem, col: Int): (Int, Int) = {
-    ((col until sys.dim).maxBy(row => sys.value(row, col)), col)
+    ((col until sys.dim).maxBy(row => math.abs(sys.value(row, col))), col)
   }
 
   def main(args: Array[String]): Unit = {
     val dim = StdIn.readLine().toInt
-    val rows = (0 until dim).map(_ => MatrixRow(StdIn.readLine()))
-    val sys = MatrixSystem(rows)
-    solve(sys)
-    val solution = (0 until sys.dim).map(d => sys(d).resCoeff)
-    println(solution.mkString(" "))
+    if (dim > 0) {
+      val rows = (0 until dim).map(_ => MatrixRow(StdIn.readLine()))
+      val sys = MatrixSystem(rows)
+      solve(sys)
+      val solution = (0 until sys.dim).map(d => sys(d).resCoeff)
+      println(solution.mkString(" "))
+    } else {
+      println()
+    }
   }
 }
