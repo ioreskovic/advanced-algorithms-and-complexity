@@ -1,5 +1,6 @@
 import java.text.{DecimalFormat, DecimalFormatSymbols}
 import java.util.Locale
+import java.util.stream.IntStream
 
 import scala.io.StdIn
 
@@ -15,7 +16,7 @@ object Diet {
     }
   }
 
-  class MatrixRow private(private val coeffs: Array[Double]) {
+  class MatrixRow private(val coeffs: Array[Double]) {
     def dim: Int = coeffs.length - 1
 
     def varCoeff(i: Int): Double = coeffs(i)
@@ -56,7 +57,7 @@ object Diet {
     }
   }
 
-  class MatrixSystem private(private val m: Array[MatrixRow]) {
+  class MatrixSystem private(val m: Array[MatrixRow]) {
     def rows: Int = m.length
 
     def cols: Int = m.head.dim
@@ -110,6 +111,12 @@ object Diet {
     override def toString: String = {
       m.mkString(System.lineSeparator())
     }
+
+    def partitionByIndex(indexes: Seq[Int]): (MatrixSystem, MatrixSystem) = {
+      val used = indexes.toSet
+      val (pos, neg) = m.zipWithIndex.partition( x => used(x._2))
+      (MatrixSystem(pos.unzip._1), MatrixSystem(neg.unzip._1))
+    }
   }
 
   def solve(sys: MatrixSystem): MatrixSystem = {
@@ -143,55 +150,37 @@ object Diet {
     val rhss = StdIn.readLine().split(" ")
     val functionCoeffs = StdIn.readLine.split(" ").map(_.toDouble).toVector
     val inputRows = lhss.zip(rhss).map { case (lhs, rhs) => MatrixRow(lhs + " " + rhs) }
-
-    //    inputRows.foreach(println)
-
     val augmentingRow = MatrixRow(Array.tabulate(nItems + 1)(i => if (i < nItems) 1 else Double.PositiveInfinity))
-    //    val augmentingRows = augmentingRow :: (0 until nItems).map(i => MatrixRow(Array.tabulate(nItems + 1)(j => if (j < nItems && j == i) -1.0 else 0.0))).toList
+    val augmentedRows = augmentingRow :: inputRows.toList
+    val inputSystem = MatrixSystem(augmentedRows)
 
-    val augmentedRows = inputRows.toList
 
-    val combinations = augmentedRows.choose(nItems, augmentingRow)
+    val combinations = (0 until (nInequalities + nItems + 1)).choose(nItems)
     val comboResults = combinations.map(c => {
-      val sys = MatrixSystem(c.toList)
-      //      println(sys)
-      //      println()
-      solve(sys)
-      sys.results
+      val (posSys, negSys) = inputSystem.partitionByIndex(c)
+      val results = solve(posSys).results
+      isSolution(negSys, results)
     }).toVector
 
-    val withResults = comboResults.map(vars => {
-      val correctedVars = vars.map(v => if (v < 0.0) 0.0 else v)
-      (correctedVars, functionValue(functionCoeffs, correctedVars))
-    })
-    //    withResults.foreach(println)
-    val (nans, nonNans) = withResults.partition(_._2.isNaN)
-    if (nonNans.nonEmpty) {
-      println("Bounded solution")
-      println(nonNans.maxBy(_._2)._1.mkString(" "))
-    } else if (nans.forall(_._1.forall(_.isNaN))) {
-      println("Infinity")
-    } else {
-      println("No solution")
-    }
 
-    //    val dim = StdIn.readLine().toInt
-    //    if (dim > 0) {
-    //      val rows = (0 until dim).map(_ => MatrixRow(StdIn.readLine()))
-    //      val sys = MatrixSystem(rows)
-    //      solve(sys)
-    //      println(sys)
-    //      println()
-    //      val solution = (0 until sys.dim).map(d => sys(d).resCoeff)
-    //      println(solution.mkString(" "))
-    //    } else {
-    //      println()
-    //    }
+    // refactor
+//    val (nans, nonNans) = withResults.partition(_._2.isNaN)
+//    if (nonNans.nonEmpty) {
+//      println("Bounded solution")
+//      println(nonNans.maxBy(_._2)._1.mkString(" "))
+//    } else if (nans.forall(_._1.forall(_.isNaN))) {
+//      println("Infinity")
+//    } else {
+//      println("No solution")
+//    }
+  }
+
+  def isSolution(system: MatrixSystem, doubles: Seq[Double]): Boolean = {
+    system.m.forall(row => functionValue(row.coeffs.init, doubles) <= row.resCoeff)
   }
 
   implicit class Combinations[T](from: Seq[T]) {
-    //    def choose(n: Int, fill: T): Iterator[Seq[T]] = if (n > from.length) Seq(Seq.fill(n - from.length)(fill) ++ from).iterator else from.combinations(n)
-    def choose(n: Int, fill: T): Seq[Seq[T]] = if (n > from.length) Seq() else from.combinations(n).toSeq
+    def choose(n: Int): Seq[Seq[T]] = if (n > from.length) Seq() else from.combinations(n).toSeq
     def complement(combination: Seq[T]): Seq[T] = {
       val used = combination.toSet
       from.filterNot(used)
