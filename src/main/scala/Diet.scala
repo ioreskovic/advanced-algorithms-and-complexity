@@ -4,15 +4,22 @@ import java.util.Locale
 import scala.io.StdIn
 
 object Diet {
+
   object MatrixRow {
     def apply(s: String): MatrixRow = {
-      new MatrixRow(s.split(" ").map(_.toDouble))
+      new MatrixRow(s.split(" ").map(_.toInt.toDouble))
+    }
+
+    def apply(coeffs: Seq[Double]): MatrixRow = {
+      new MatrixRow(coeffs.toArray)
     }
   }
 
   class MatrixRow private(private val coeffs: Array[Double]) {
     def dim: Int = coeffs.length - 1
+
     def varCoeff(i: Int): Double = coeffs(i)
+
     def resCoeff: Double = coeffs.last
 
     def scale(factor: Double): MatrixRow = {
@@ -28,9 +35,13 @@ object Diet {
     }
 
     def +(other: MatrixRow): MatrixRow = add(other)
+
     def unary_-(): MatrixRow = neg
+
     def -(other: MatrixRow): MatrixRow = this + (-other)
+
     def *(factor: Double): MatrixRow = scale(factor)
+
     def /(factor: Double): MatrixRow = scale(1.0 / factor)
 
     override def toString: String = {
@@ -41,14 +52,20 @@ object Diet {
 
   object MatrixSystem {
     def apply(rows: Seq[MatrixRow]): MatrixSystem = {
-      new MatrixSystem(Array(rows:_*))
+      new MatrixSystem(Array(rows: _*))
     }
   }
 
   class MatrixSystem private(private val m: Array[MatrixRow]) {
     def rows: Int = m.length
+
     def cols: Int = m.head.dim
-    def dim: Int = math.min(rows, cols)
+
+    def dim: Int = cols
+
+    def results: Seq[Double] = {
+      (0 until dim).map(d => m(d).resCoeff)
+    }
 
     def swapRows(i: Int, j: Int): MatrixSystem = {
       val temp = m(i)
@@ -120,21 +137,69 @@ object Diet {
   }
 
   def main(args: Array[String]): Unit = {
-    val dim = StdIn.readLine().toInt
-    if (dim > 0) {
-      val rows = (0 until dim).map(_ => MatrixRow(StdIn.readLine()))
-      val sys = MatrixSystem(rows)
+    val metaInfo = StdIn.readLine().split(" ")
+    val (nInequalities, nItems) = (metaInfo(0).toInt, metaInfo(1).toInt)
+    val lhss = (0 until nInequalities).map(_ => StdIn.readLine())
+    val rhss = StdIn.readLine().split(" ")
+    val functionCoeffs = StdIn.readLine.split(" ").map(_.toDouble).toVector
+    val inputRows = lhss.zip(rhss).map { case (lhs, rhs) => MatrixRow(lhs + " " + rhs) }
+
+    //    inputRows.foreach(println)
+
+    val augmentingRow = MatrixRow(Array.tabulate(nItems + 1)(i => if (i < nItems) 1 else Double.PositiveInfinity))
+    //    val augmentingRows = augmentingRow :: (0 until nItems).map(i => MatrixRow(Array.tabulate(nItems + 1)(j => if (j < nItems && j == i) -1.0 else 0.0))).toList
+
+    val augmentedRows = inputRows.toList
+
+    val combinations = augmentedRows.choose(nItems, augmentingRow)
+    val comboResults = combinations.map(c => {
+      val sys = MatrixSystem(c.toList)
+      //      println(sys)
+      //      println()
       solve(sys)
-      println(sys)
-      println()
-      val solution = (0 until sys.dim).map(d => sys(d).resCoeff)
-      println(solution.mkString(" "))
+      sys.results
+    }).toVector
+
+    val withResults = comboResults.map(vars => {
+      val correctedVars = vars.map(v => if (v < 0.0) 0.0 else v)
+      (correctedVars, functionValue(functionCoeffs, correctedVars))
+    })
+    //    withResults.foreach(println)
+    val (nans, nonNans) = withResults.partition(_._2.isNaN)
+    if (nonNans.nonEmpty) {
+      println("Bounded solution")
+      println(nonNans.maxBy(_._2)._1.mkString(" "))
+    } else if (nans.forall(_._1.forall(_.isNaN))) {
+      println("Infinity")
     } else {
-      println()
+      println("No solution")
     }
+
+    //    val dim = StdIn.readLine().toInt
+    //    if (dim > 0) {
+    //      val rows = (0 until dim).map(_ => MatrixRow(StdIn.readLine()))
+    //      val sys = MatrixSystem(rows)
+    //      solve(sys)
+    //      println(sys)
+    //      println()
+    //      val solution = (0 until sys.dim).map(d => sys(d).resCoeff)
+    //      println(solution.mkString(" "))
+    //    } else {
+    //      println()
+    //    }
   }
 
   implicit class Combinations[T](from: Seq[T]) {
-    def choose(n: Int): Iterator[Seq[T]] = from.combinations(n)
+    //    def choose(n: Int, fill: T): Iterator[Seq[T]] = if (n > from.length) Seq(Seq.fill(n - from.length)(fill) ++ from).iterator else from.combinations(n)
+    def choose(n: Int, fill: T): Seq[Seq[T]] = if (n > from.length) Seq() else from.combinations(n).toSeq
+    def complement(combination: Seq[T]): Seq[T] = {
+      val used = combination.toSet
+      from.filterNot(used)
+    }
   }
+
+  def functionValue(coeffs: Seq[Double], vars: Seq[Double]): Double = {
+    coeffs.zip(vars).map { case (c, v) => c * v }.sum
+  }
+
 }
