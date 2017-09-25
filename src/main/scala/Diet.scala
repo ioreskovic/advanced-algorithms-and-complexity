@@ -1,14 +1,14 @@
 import java.text.{DecimalFormat, DecimalFormatSymbols}
 import java.util.Locale
-import java.util.stream.IntStream
 
+import scala.annotation.tailrec
 import scala.io.StdIn
 
 object Diet {
 
   object MatrixRow {
     def apply(s: String): MatrixRow = {
-      new MatrixRow(s.split(" ").map(_.toInt.toDouble))
+      new MatrixRow(s.split(" ").map(_.toDouble))
     }
 
     def apply(coeffs: Seq[Double]): MatrixRow = {
@@ -68,6 +68,20 @@ object Diet {
       (0 until dim).map(d => m(d).resCoeff)
     }
 
+    def augmentedRows(indexes: Array[Int], nConstraints: Int, nItems: Int): Array[MatrixRow] = {
+      @tailrec
+      def loop(i: Int, res: Array[MatrixRow]): Array[MatrixRow] = {
+        if (i >= indexes.length) res
+        else {
+          if (indexes(i) < nConstraints) loop(i + 1, res.updated(i, MatrixRow(m(indexes(i)).coeffs)))
+          else if (indexes(i) == nConstraints + nItems) loop(i + 1, res.updated(i, MatrixRow(Array.tabulate(nItems + 1)(i => if (i < nItems) 1 else 1E9))))
+          else loop(i + 1, res.updated(i, MatrixRow(res(i).coeffs.updated(indexes(i) - nConstraints, -1.0))))
+        }
+      }
+
+      loop(0, Array.fill(indexes.length)(MatrixRow(Array.fill(nItems + 1)(0.0))))
+    }
+
     def swapRows(i: Int, j: Int): MatrixSystem = {
       val temp = m(i)
       m(i) = m(j)
@@ -112,31 +126,45 @@ object Diet {
       m.mkString(System.lineSeparator())
     }
 
-    def partitionByIndex(indexes: Seq[Int]): (MatrixSystem, MatrixSystem) = {
-      val used = indexes.toSet
-      val (pos, neg) = m.zipWithIndex.partition( x => used(x._2))
-      (MatrixSystem(pos.unzip._1), MatrixSystem(neg.unzip._1))
+    def partitionByIndex(indexes: Seq[Int], all: Seq[Int]): (MatrixSystem, MatrixSystem) = {
+      val posRows = augmentedRows(indexes.toArray, rows, cols)
+      val complementedIndexes = all.complement(indexes)
+      val negRows = augmentedRows(complementedIndexes.toArray, rows, cols)
+      (MatrixSystem(posRows), MatrixSystem(negRows))
     }
   }
 
   def solve(sys: MatrixSystem): MatrixSystem = {
-    (0 until sys.dim).foreach(step(sys, _))
+    for (i <- 0 until sys.dim) {
+      step(sys, i)
+    }
+//    (0 until sys.dim).foreach(step(sys, _))
     scaleToPivots(sys)
     sys
   }
 
   private def scaleToPivots(sys: MatrixSystem): MatrixSystem = {
-    (0 until sys.dim).foreach(i => sys.divide(i, sys.value(i, i)))
+    for (i <- 0 until sys.dim) {
+      sys.divide(i, sys.value(i, i))
+    }
     sys
   }
 
   private def step(sys: MatrixSystem, column: Int) = {
     val (pivotRow, pivotCol) = findPivot(sys, column)
     sys.swapRows(column, pivotRow)
-    (0 until sys.dim).foreach(row => if (row != column) {
-      val factor = sys.value(row, column) / sys.value(column, column)
-      sys(row) = { _ => sys(row) - (sys(column) * factor) }
-    })
+
+    for (row <- 0 until sys.dim) {
+      if (row != column) {
+        val factor = sys.value(row, column) / sys.value(column, column)
+        sys(row) = { _ => sys(row) - (sys(column) * factor) }
+      }
+    }
+
+//    (0 until sys.dim).foreach(row => if (row != column) {
+//      val factor = sys.value(row, column) / sys.value(column, column)
+//      sys(row) = { _ => sys(row) - (sys(column) * factor) }
+//    })
   }
 
   def findPivot(sys: MatrixSystem, col: Int): (Int, Int) = {
@@ -150,28 +178,49 @@ object Diet {
     val rhss = StdIn.readLine().split(" ")
     val functionCoeffs = StdIn.readLine.split(" ").map(_.toDouble).toVector
     val inputRows = lhss.zip(rhss).map { case (lhs, rhs) => MatrixRow(lhs + " " + rhs) }
-    val augmentingRow = MatrixRow(Array.tabulate(nItems + 1)(i => if (i < nItems) 1 else Double.PositiveInfinity))
-    val augmentedRows = augmentingRow :: inputRows.toList
-    val inputSystem = MatrixSystem(augmentedRows)
+    val inputSystem = MatrixSystem(inputRows)
 
+    val all = 0 to (nInequalities + nItems)
 
-    val combinations = (0 until (nInequalities + nItems + 1)).choose(nItems)
-    val comboResults = combinations.map(c => {
-      val (posSys, negSys) = inputSystem.partitionByIndex(c)
+    var comboResults: List[(Double, Seq[Double])] = Nil
+    for (c <- all.choose(nItems)) {
+      val (posSys, negSys) = inputSystem.partitionByIndex(c, all)
       val results = solve(posSys).results
-      isSolution(negSys, results)
-    }).toVector
+      if (isSolution(negSys, results)) {
+        comboResults = (functionValue(functionCoeffs, results), results) :: comboResults
+      }
+    }
 
+    if (comboResults.isEmpty) {
+      println("No solution")
+    } else {
+      val (maxValue, maxArgs) = comboResults.maxBy(_._1)
+      if (maxValue >= 1E9) {
+        println("Infinity")
+      } else {
+        println("Bounded solution")
+        println(maxArgs.mkString(" "))
+      }
+    }
 
-    // refactor
-//    val (nans, nonNans) = withResults.partition(_._2.isNaN)
-//    if (nonNans.nonEmpty) {
-//      println("Bounded solution")
-//      println(nonNans.maxBy(_._2)._1.mkString(" "))
-//    } else if (nans.forall(_._1.forall(_.isNaN))) {
-//      println("Infinity")
-//    } else {
-//      println("No solution")
+//    val comboResults = for {
+//      c <- all.choose(nItems)
+//      (posSys, negSys) = inputSystem.partitionByIndex(c, all)
+//      results = solve(posSys).results
+//      if isSolution(negSys, results)
+//    } yield (functionValue(functionCoeffs, results), results)
+//
+//    comboResults match {
+//      case Nil => println("No solution")
+//      case cs @ _ => {
+//        val (maxValue, maxArgs) = cs.maxBy(_._1)
+//        if (maxValue >= 1E9) {
+//          println("Infinity")
+//        } else {
+//          println("Bounded solution")
+//          println(maxArgs.mkString(" "))
+//        }
+//      }
 //    }
   }
 
@@ -188,7 +237,12 @@ object Diet {
   }
 
   def functionValue(coeffs: Seq[Double], vars: Seq[Double]): Double = {
-    coeffs.zip(vars).map { case (c, v) => c * v }.sum
+//    coeffs.zip(vars).map { case (c, v) => c * v }.sum
+    var sum = 0.0
+    for (i <- coeffs.indices) {
+      sum = sum + (coeffs(i) * vars(i))
+    }
+    sum
   }
 
 }
