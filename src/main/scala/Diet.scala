@@ -27,12 +27,46 @@ object Diet {
       new MatrixRow(coeffs.map(_ * factor))
     }
 
+    def copy: MatrixRow = {
+      MatrixRow(coeffs.clone())
+    }
+
+    def scaled(factor: Double): Unit = {
+      for (i <- coeffs.indices) {
+        coeffs(i) = coeffs(i) * factor
+      }
+    }
+
     def neg: MatrixRow = {
       scale(-1.0)
     }
 
+    def negged(): Unit = {
+      scaled(-1.0)
+    }
+
     def add(other: MatrixRow): MatrixRow = {
       new MatrixRow((0 to dim).map(i => this.coeffs(i) + other.coeffs(i)).toArray)
+    }
+
+    def added(other: MatrixRow, scale: Double = 1.0): Unit = {
+      for (i <- this.coeffs.indices) {
+        this.coeffs(i) = this.coeffs(i) + (other.coeffs(i) * scale)
+      }
+    }
+
+    def subtracted(other: MatrixRow, scale: Double = 1.0): Unit = {
+      for (i <- this.coeffs.indices) {
+        this.coeffs(i) = this.coeffs(i) - (other.coeffs(i) * scale)
+      }
+    }
+
+    def multiplied(factor: Double): Unit = {
+      scaled(factor)
+    }
+
+    def divided(factor: Double): Unit = {
+      scaled(1.0 / factor)
     }
 
     def +(other: MatrixRow): MatrixRow = add(other)
@@ -73,9 +107,9 @@ object Diet {
       def loop(i: Int, res: Array[MatrixRow]): Array[MatrixRow] = {
         if (i >= indexes.length) res
         else {
-          if (indexes(i) < nConstraints) loop(i + 1, res.updated(i, MatrixRow(m(indexes(i)).coeffs)))
+          if (indexes(i) < nConstraints) loop(i + 1, res.updated(i, m(indexes(i)).copy))
           else if (indexes(i) == nConstraints + nItems) loop(i + 1, res.updated(i, MatrixRow(Array.tabulate(nItems + 1)(i => if (i < nItems) 1 else 1E9))))
-          else loop(i + 1, res.updated(i, MatrixRow(res(i).coeffs.updated(indexes(i) - nConstraints, -1.0))))
+          else loop(i + 1, res.updated(i, MatrixRow(res(i).copy.coeffs.updated(indexes(i) - nConstraints, -1.0))))
         }
       }
 
@@ -93,24 +127,48 @@ object Diet {
       this (row) = { _: Unit => m(row).scale(factor) }
     }
 
+    def scaled(row: Int, factor: Double): Unit = {
+      m(row).scaled(factor)
+    }
+
     def neg(row: Int): MatrixSystem = {
       this (row) = { _: Unit => -m(row) }
+    }
+
+    def negged(row: Int): Unit = {
+      m(row).negged()
     }
 
     def add(targetRow: Int, sourceRow: Int): MatrixSystem = {
       this (targetRow) = { _: Unit => m(targetRow) + m(sourceRow) }
     }
 
+    def added(targetRow: Int, sourceRow: Int, scale: Double = 1.0): Unit = {
+      m(targetRow).added(m(sourceRow), scale)
+    }
+
     def subtract(targetRow: Int, sourceRow: Int): MatrixSystem = {
       this (targetRow) = { _: Unit => m(targetRow) - m(sourceRow) }
+    }
+
+    def subtracted(targetRow: Int, sourceRow: Int, scale: Double = 1.0): Unit = {
+      m(targetRow).subtracted(m(sourceRow), scale)
     }
 
     def multiply(targetRow: Int, factor: Double): MatrixSystem = {
       this (targetRow) = { _: Unit => m(targetRow) * factor }
     }
 
+    def multiplied(targetRow: Int, factor: Double): Unit = {
+      m(targetRow).multiplied(factor)
+    }
+
     def divide(targetRow: Int, factor: Double): MatrixSystem = {
       this (targetRow) = { _: Unit => m(targetRow) / factor }
+    }
+
+    def divided(targetRow: Int, factor: Double): Unit = {
+      m(targetRow).divided(factor)
     }
 
     def update(row: Int, f: Unit => MatrixRow): MatrixSystem = {
@@ -138,33 +196,33 @@ object Diet {
     for (i <- 0 until sys.dim) {
       step(sys, i)
     }
-//    (0 until sys.dim).foreach(step(sys, _))
     scaleToPivots(sys)
     sys
   }
 
   private def scaleToPivots(sys: MatrixSystem): MatrixSystem = {
     for (i <- 0 until sys.dim) {
-      sys.divide(i, sys.value(i, i))
+//      sys.divide(i, sys.value(i, i))
+      sys.divided(i, sys.value(i, i))
     }
     sys
   }
 
-  private def step(sys: MatrixSystem, column: Int) = {
+  private def step(sys: MatrixSystem, column: Int): Unit = {
     val (pivotRow, pivotCol) = findPivot(sys, column)
     sys.swapRows(column, pivotRow)
 
     for (row <- 0 until sys.dim) {
       if (row != column) {
         val factor = sys.value(row, column) / sys.value(column, column)
-        sys(row) = { _ => sys(row) - (sys(column) * factor) }
+
+        // IMMUTABLE
+//        sys(row) = { _ => sys(row) - (sys(column) * factor) }
+
+        // MUTABLE
+        sys.subtracted(row, column, factor)
       }
     }
-
-//    (0 until sys.dim).foreach(row => if (row != column) {
-//      val factor = sys.value(row, column) / sys.value(column, column)
-//      sys(row) = { _ => sys(row) - (sys(column) * factor) }
-//    })
   }
 
   def findPivot(sys: MatrixSystem, col: Int): (Int, Int) = {
