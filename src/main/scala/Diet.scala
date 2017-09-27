@@ -202,7 +202,6 @@ object Diet {
 
   private def scaleToPivots(sys: MatrixSystem): MatrixSystem = {
     for (i <- 0 until sys.dim) {
-//      sys.divide(i, sys.value(i, i))
       sys.divided(i, sys.value(i, i))
     }
     sys
@@ -216,10 +215,6 @@ object Diet {
       if (row != column) {
         val factor = sys.value(row, column) / sys.value(column, column)
 
-        // IMMUTABLE
-//        sys(row) = { _ => sys(row) - (sys(column) * factor) }
-
-        // MUTABLE
         sys.subtracted(row, column, factor)
       }
     }
@@ -260,26 +255,6 @@ object Diet {
         println(maxArgs.mkString(" "))
       }
     }
-
-//    val comboResults = for {
-//      c <- all.choose(nItems)
-//      (posSys, negSys) = inputSystem.partitionByIndex(c, all)
-//      results = solve(posSys).results
-//      if isSolution(negSys, results)
-//    } yield (functionValue(functionCoeffs, results), results)
-//
-//    comboResults match {
-//      case Nil => println("No solution")
-//      case cs @ _ => {
-//        val (maxValue, maxArgs) = cs.maxBy(_._1)
-//        if (maxValue >= 1E9) {
-//          println("Infinity")
-//        } else {
-//          println("Bounded solution")
-//          println(maxArgs.mkString(" "))
-//        }
-//      }
-//    }
   }
 
   def isSolution(system: MatrixSystem, doubles: Seq[Double]): Boolean = {
@@ -295,7 +270,6 @@ object Diet {
   }
 
   def functionValue(coeffs: Seq[Double], vars: Seq[Double]): Double = {
-//    coeffs.zip(vars).map { case (c, v) => c * v }.sum
     var sum = 0.0
     for (i <- coeffs.indices) {
       sum = sum + (coeffs(i) * vars(i))
