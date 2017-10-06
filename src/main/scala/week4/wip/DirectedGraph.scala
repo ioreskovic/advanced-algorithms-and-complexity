@@ -2,7 +2,7 @@ package week4.wip
 
 import week4.wip.Graph.Edge
 
-case class DirectedGraph[Vertex](vertices: List[Vertex], adj: Map[Vertex, List[Vertex]])(implicit conversion: Vertex => Int) extends Graph[Vertex] {
+class DirectedGraph[Vertex](val vertices: List[Vertex], val adj: Map[Vertex, List[Vertex]])(implicit conversion: Vertex => Int) extends Graph[Vertex] {
   override def transpose: DirectedGraph[Vertex] = {
     import scala.collection.mutable.{ HashMap => MutableHashMap }
 
@@ -14,7 +14,7 @@ case class DirectedGraph[Vertex](vertices: List[Vertex], adj: Map[Vertex, List[V
       }
     }
 
-    DirectedGraph(vertices, transposedAdj.toMap)
+    new DirectedGraph(vertices, transposedAdj.toMap)
   }
 }
 
@@ -30,6 +30,6 @@ object DirectedGraph {
       adjMap(e.from) = e.to :: adjMap(e.from)
     }
 
-    DirectedGraph(vertexSet.toList, adjMap.toMap)
+    new DirectedGraph(vertexSet.toList, adjMap.toMap)
   }
 }
