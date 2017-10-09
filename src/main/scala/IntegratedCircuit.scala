@@ -88,13 +88,14 @@ object IntegratedCircuit {
       // recursive to iterative
 
       def exploreIterative(vertex: Vertex, sccIndex: Int): Unit = {
-        val queue = MutableQueue[Vertex](vertex)
+        var stack = List[Vertex](vertex)
 
-        while (queue.nonEmpty) {
-          val v = queue.dequeue()
+        while (stack.nonEmpty) {
+          val v = stack.head
+          stack = stack.tail
           visited(v) = true
           sccMap.update(sccIndex, v :: sccMap(sccIndex))
-          t(v).foreach(n => if (!visited(n)) queue.enqueue(n))
+          t(v).foreach(n => if (!visited(n)) stack = n :: stack)
         }
       }
 
