@@ -61,6 +61,8 @@ object IntegratedCircuit {
       import scala.collection.mutable.{HashSet => MutableHashSet}
       val order = ListBuffer[Vertex]()
       val visited = MutableHashSet[Int]()
+
+      // recursive needs to be iterative
       def dfsLoop(vertex: Vertex): Unit = {
         if (!visited(vertex)) {
           visited(vertex) = true
@@ -77,22 +79,35 @@ object IntegratedCircuit {
     }
 
     def scc: List[StronglyConnectedComponent[Vertex]] = {
-      import scala.collection.mutable.{HashMap => MutableHashMap, HashSet => MutableHashSet}
+      import scala.collection.mutable.{HashMap => MutableHashMap, HashSet => MutableHashSet, Queue => MutableQueue}
       val reversePostOrder = postOrder.reverse
       val sccMap = MutableHashMap[Int, List[Vertex]]().withDefaultValue(Nil)
       val t = transpose
       val visited = MutableHashSet[Int]()
 
-      def explore(vertex: Vertex, sccIndex: Int): Unit = {
-        visited(vertex) = true
-        sccMap.update(sccIndex, vertex :: sccMap(sccIndex))
-        t(vertex).foreach(n => if (!visited(n)) explore(n, sccIndex))
+      // recursive to iterative
+
+      def exploreIterative(vertex: Vertex, sccIndex: Int): Unit = {
+        val queue = MutableQueue[Vertex](vertex)
+
+        while (queue.nonEmpty) {
+          val v = queue.dequeue()
+          visited(v) = true
+          sccMap.update(sccIndex, v :: sccMap(sccIndex))
+          t(v).foreach(n => if (!visited(n)) queue.enqueue(n))
+        }
       }
+
+//      def explore(vertex: Vertex, sccIndex: Int): Unit = {
+//        visited(vertex) = true
+//        sccMap.update(sccIndex, vertex :: sccMap(sccIndex))
+//        t(vertex).foreach(n => if (!visited(n)) explore(n, sccIndex))
+//      }
 
       @tailrec
       def loop(vx: List[Vertex], sccIndex: Int = 0): Unit = vx match {
         case v :: vs if !visited(v) => {
-          explore(v, sccIndex)
+          exploreIterative(v, sccIndex)
           loop(vs, sccIndex + 1)
         }
         case _ :: vs => loop(vs, sccIndex)
@@ -168,10 +183,11 @@ object IntegratedCircuit {
   def main(args: Array[String]): Unit = {
     val metaInfo = StdIn.readLine().split(" ")
     val nVariables = metaInfo(0).toInt
+    val vertices = (1 to nVariables).foldLeft(List[CNFTerm]()){ case (vs, i) => PositiveCNFTerm(i) :: NegativeCNFTerm(i) :: vs}
     val nClauses = metaInfo(1).toInt
     val clauses = (0 until nClauses).map(_ => CNFClause(StdIn.readLine()))
     val graphEdges = clauses.flatMap(clauseToEdges)
-    val cnf2graph = DirectedGraph(graphEdges)(_.index)
+    val cnf2graph = DirectedGraph(vertices, graphEdges)(_.index)
     val scc = cnf2graph.scc
     if (!isSatisfiable(scc)) {
       println("UNSATISFIABLE")
@@ -182,7 +198,6 @@ object IntegratedCircuit {
       println("SATISFIABLE")
       println(sat.mkString(" "))
     }
-
   }
 
   def isSatisfiable(sccList: List[StronglyConnectedComponent[CNFTerm]]): Boolean = {
@@ -219,6 +234,7 @@ object IntegratedCircuit {
 
   def clauseToEdges(c: CNFClause): List[Edge[CNFTerm]] = c match {
     case CNF2(a, b) => List(Edge(-a, b), Edge(-b, a))
+    case CNF1(a) => List(Edge(-a, a))
     case _ => Nil
   }
 
