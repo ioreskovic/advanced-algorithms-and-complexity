@@ -61,25 +61,32 @@ object IntegratedCircuit {
       import scala.collection.mutable.{HashSet => MutableHashSet}
       val order = ListBuffer[Vertex]()
       val visited = MutableHashSet[Int]()
-
+      val closed = MutableHashSet[Int]()
 
       def dfsLoopIterative(vertex: Vertex): Unit = {
-        var s1 = List[Vertex]()
-        var s2 = List[Vertex]()
+        var q = List(vertex)
 
-        s1 = vertex :: s1
-        while (s1.nonEmpty) {
-          val x = s1.head
-          s1 = s1.tail
-
+        while (q.nonEmpty) {
+          val x = q.head
           if (!visited(x)) {
             visited(x) = true
-            s2 = x :: s2
-            adj(x).foreach(n => s1 = n :: s1)
+            closed(x) = false
+            adj(x).foreach(n => if (!visited(n)) q = n :: q)
+          } else {
+            if (!closed(x)) {
+              // q = q.tail
+              val next = adj(x).filter(n => !visited(n))
+              if (next.isEmpty) {
+                closed(x) = true
+              } else {
+                next.foreach(n => q = n :: q)
+              }
+            } else {
+              q = q.tail
+              order.append(x)
+            }
           }
         }
-
-        s2.foreach(order.append(_))
       }
 
       // recursive needs to be iterative
@@ -92,7 +99,9 @@ object IntegratedCircuit {
       }
 
       for (vertex <- vertices) {
-//        dfsLoopIterative(vertex)
+//        if (!visited(vertex) || !closed(vertex)) {
+//          dfsLoopIterative(vertex)
+//        }
         dfsLoop(vertex)
       }
 
@@ -212,9 +221,6 @@ object IntegratedCircuit {
     val clauses = (0 until nClauses).map(_ => CNFClause(StdIn.readLine()))
     val graphEdges = clauses.flatMap(clauseToEdges)
     val cnf2graph = DirectedGraph(vertices, graphEdges)(_.index)
-    println("GRAPH")
-    println(cnf2graph)
-    println()
     val scc = cnf2graph.scc
     if (!isSatisfiable(scc)) {
       println("UNSATISFIABLE")
@@ -241,9 +247,6 @@ object IntegratedCircuit {
 
   def assignment(sccList: List[StronglyConnectedComponent[CNFTerm]]): Map[CNFTerm, Boolean] = {
     import scala.collection.mutable.{ HashMap => MutableHashMap }
-
-//    println("TOPO-SCCS")
-//    println(sccList.mkString("\n"))
 
     val assignments = MutableHashMap[CNFTerm, Boolean]()
 
