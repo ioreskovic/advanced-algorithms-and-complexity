@@ -62,6 +62,26 @@ object IntegratedCircuit {
       val order = ListBuffer[Vertex]()
       val visited = MutableHashSet[Int]()
 
+
+      def dfsLoopIterative(vertex: Vertex): Unit = {
+        var s1 = List[Vertex]()
+        var s2 = List[Vertex]()
+
+        s1 = vertex :: s1
+        while (s1.nonEmpty) {
+          val x = s1.head
+          s1 = s1.tail
+
+          if (!visited(x)) {
+            visited(x) = true
+            s2 = x :: s2
+            adj(x).foreach(n => s1 = n :: s1)
+          }
+        }
+
+        s2.foreach(order.append(_))
+      }
+
       // recursive needs to be iterative
       def dfsLoop(vertex: Vertex): Unit = {
         if (!visited(vertex)) {
@@ -72,8 +92,11 @@ object IntegratedCircuit {
       }
 
       for (vertex <- vertices) {
+//        dfsLoopIterative(vertex)
         dfsLoop(vertex)
       }
+
+//      println(order.mkString(" "))
 
       order.toList
     }
@@ -189,6 +212,9 @@ object IntegratedCircuit {
     val clauses = (0 until nClauses).map(_ => CNFClause(StdIn.readLine()))
     val graphEdges = clauses.flatMap(clauseToEdges)
     val cnf2graph = DirectedGraph(vertices, graphEdges)(_.index)
+    println("GRAPH")
+    println(cnf2graph)
+    println()
     val scc = cnf2graph.scc
     if (!isSatisfiable(scc)) {
       println("UNSATISFIABLE")
