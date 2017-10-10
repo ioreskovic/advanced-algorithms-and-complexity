@@ -99,56 +99,59 @@ object IntegratedCircuit {
       }
 
       for (vertex <- vertices) {
-//        if (!visited(vertex) || !closed(vertex)) {
-//          dfsLoopIterative(vertex)
-//        }
         dfsLoop(vertex)
       }
-
-//      println(order.mkString(" "))
 
       order.toList
     }
 
-    def scc: List[StronglyConnectedComponent[Vertex]] = {
-      import scala.collection.mutable.{HashMap => MutableHashMap, HashSet => MutableHashSet, Queue => MutableQueue}
-      val reversePostOrder = postOrder.reverse
-      val sccMap = MutableHashMap[Int, List[Vertex]]().withDefaultValue(Nil)
-      val t = transpose
-      val visited = MutableHashSet[Int]()
+    def tarjanScc: List[StronglyConnectedComponent[Vertex]] = {
+      import scala.collection.mutable.{ HashSet => MutableHashSet, HashMap => MutableHashMap }
+      val marked = MutableHashSet[Vertex]()
+      val id = MutableHashMap[Vertex, Int]().withDefaultValue(0)
+      val low = MutableHashMap[Vertex, Int]().withDefaultValue(0)
+      var pre = 0
+      var count = 0
+      var stack = List[Vertex]()
 
-      // recursive to iterative
+      def dfs(v: Vertex): Unit = {
+        marked(v) = true
+        low(v) = pre
+        pre = pre + 1
+        var min = low(v)
+        stack = v :: stack
+        for (w <- adj(v)) {
+          if (!marked(w)) dfs(w)
+          if (low(w) < min) min = low(w)
+        }
+        if (min < low(v)) {
+          low(v) = min
+          return
+        }
 
-      def exploreIterative(vertex: Vertex, sccIndex: Int): Unit = {
-        var stack = List[Vertex](vertex)
-
-        while (stack.nonEmpty) {
-          val v = stack.head
+        var w = stack.head
+        do {
+          w = stack.head
           stack = stack.tail
-          visited(v) = true
-          sccMap.update(sccIndex, v :: sccMap(sccIndex))
-          t(v).foreach(n => if (!visited(n)) stack = n :: stack)
+          id(w) = count
+          low(w) = vertices.length
+        } while (w != v)
+        count = count + 1
+      }
+
+      for (vertex <- vertices) {
+        if (!marked(vertex)) {
+          dfs(vertex)
         }
       }
 
-//      def explore(vertex: Vertex, sccIndex: Int): Unit = {
-//        visited(vertex) = true
-//        sccMap.update(sccIndex, vertex :: sccMap(sccIndex))
-//        t(vertex).foreach(n => if (!visited(n)) explore(n, sccIndex))
-//      }
+      id.foldLeft(Map[Int, List[Vertex]]().withDefaultValue(Nil)){ case (m, (v, c)) =>
+        m + (c -> (v :: m(c)))
+      }.map{ case (i, vs) => StronglyConnectedComponent(i, vs.toSet)}.toList
+    }
 
-      @tailrec
-      def loop(vx: List[Vertex], sccIndex: Int = 0): Unit = vx match {
-        case v :: vs if !visited(v) => {
-          exploreIterative(v, sccIndex)
-          loop(vs, sccIndex + 1)
-        }
-        case _ :: vs => loop(vs, sccIndex)
-        case Nil =>
-      }
-
-      loop(reversePostOrder)
-      sccMap.map{ case (id, vertices) => StronglyConnectedComponent(id, vertices.toSet)}.toList
+    def scc: List[StronglyConnectedComponent[Vertex]] = {
+      tarjanScc
     }
 
     def nVertices: Int = vertices.length
