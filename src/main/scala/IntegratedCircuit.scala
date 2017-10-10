@@ -147,7 +147,7 @@ object IntegratedCircuit {
 
       id.foldLeft(Map[Int, List[Vertex]]().withDefaultValue(Nil)){ case (m, (v, c)) =>
         m + (c -> (v :: m(c)))
-      }.map{ case (i, vs) => StronglyConnectedComponent(i, vs.toSet)}.toList
+      }.map{ case (i, vs) => StronglyConnectedComponent(i, vs.toSet) }.toList
     }
 
     def scc: List[StronglyConnectedComponent[Vertex]] = {
