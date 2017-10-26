@@ -56,7 +56,7 @@ abstract class Graph[Vertex](implicit conversion: Vertex => Int) {
 
     loop(reversePostOrder)
 
-    sccMap.map{ case (id, vertices) => StronglyConnectedComponent(id, vertices)}.toList
+    sccMap.map{ case (id, vertices) => StronglyConnectedComponent(id, vertices.toSet)}.toList
   }
 
   def nVertices: Int = vertices.length
